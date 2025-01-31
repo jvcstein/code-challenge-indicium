@@ -12,73 +12,156 @@ As a software developer with focus in data projects your mission is to plan, dev
 
 ## The Challenge
 
-We are going to provide 2 data sources, a PostgreSQL database and a CSV file.
+*Desafio Indicium – João Stein*
 
-The CSV file represents details of orders from an ecommerce system.
+*Setup preliminar*
 
-The database provided is a sample database provided by microsoft for education purposes called northwind, the only difference is that the **order_detail** table does not exists in this database you are beeing provided with. This order_details table is represented by the CSV file we provide.
+1.Clonei o repositório do github
 
-Schema of the original Northwind Database: 
+mkdir -p /opt/indicium
 
-![image](https://user-images.githubusercontent.com/49417424/105997621-9666b980-608a-11eb-86fd-db6b44ece02a.png)
+cd /opt/indicium
 
-Your challenge is to build a pipeline that extracts the data everyday from both sources and write the data first to local disk, and second to a PostgreSQL database. For this challenge, the CSV file and the database will be static, but in any real world project, both data sources would be changing constantly.
+git clone <https://github.com/techindicium/code-challenge.git>
 
-Its important that all writing steps (writing data from inputs to local filesystem and writing data from local filesystem to PostgreSQL database) are isolated from each other, you shoud be able to run any step without executing the others.
+2.Utilizando Docker e Docker Compose, subi o container que cria o banco de dados Northwind pela execução do script “/data/northwind.sql” e disponibiliza o arquivo CSV “/data/order_details.csv”
 
-For the first step, where you write data to local disk, you should write one file for each table. This pipeline will run everyday, so there should be a separation in the file paths you will create for each source(CSV or Postgres), table and execution day combination, e.g.:
+cd /opt/indicium/code-challenge
 
-```
-/data/postgres/{table}/2024-01-01/file.format
-/data/postgres/{table}/2024-01-02/file.format
-/data/csv/2024-01-02/file.format
-```
+docker compose up
 
-You are free to chose the naming and the format of the file you are going to save.
+3.Teste do acesso ao banco de dados para ver se está tudo ok.
 
-At step 2, you should load the data from the local filesystem, which you have created, to the final database.
+psql -U northwind_user -h localhost -p 5432 northwind
 
-The final goal is to be able to run a query that shows the orders and its details. The Orders are placed in a table called **orders** at the postgres Northwind database. The details are placed at the csv file provided, and each line has an **order_id** field pointing the **orders** table.
+Senha para o usuário northwind_user:
 
-## Solution Diagram
+psql (16.4 (Ubuntu 16.4-1.pgdg22.04+1), servidor 12.22 (Debian 12.22-1.pgdg120+1))
 
-As Indicium uses some standard tools, the challenge was designed to be done using some of these tools.
+Digite "help" para obter ajuda.
 
-The following tools should be used to solve this challenge.
+northwind=# \\dt
 
-Scheduler:
-- [Airflow](https://airflow.apache.org/docs/apache-airflow/stable/installation/index.html)
+Lista de relações
 
-Data Loader:
-- [Embulk](https://www.embulk.org) (Java Based)
-**OR**
-- [Meltano](https://docs.meltano.com/?_gl=1*1nu14zf*_gcl_au*MTg2OTE2NDQ4Mi4xNzA2MDM5OTAz) (Python Based)
+Esquema | Nome | Tipo | Dono
 
-Database:
-- [PostgreSQL](https://www.postgresql.org/docs/15/index.html)
+\---------+------------------------+--------+----------------
 
-The solution should be based on the diagrams below:
-![image](docs/diagrama_embulk_meltano.jpg)
+public | categories | tabela | northwind_user
 
+public | customer_customer_demo | tabela | northwind_user
 
-### Requirements
+public | customer_demographics | tabela | northwind_user
 
-- You **must** use the tools described above to complete the challenge.
-- All tasks should be idempotent, you should be able to run the pipeline everyday and, in this case where the data is static, the output shold be the same.
-- Step 2 depends on both tasks of step 1, so you should not be able to run step 2 for a day if the tasks from step 1 did not succeed.
-- You should extract all the tables from the source database, it does not matter that you will not use most of them for the final step.
-- You should be able to tell where the pipeline failed clearly, so you know from which step you should rerun the pipeline.
-- You have to provide clear instructions on how to run the whole pipeline. The easier the better.
-- You must provide evidence that the process has been completed successfully, i.e. you must provide a csv or json with the result of the query described above.
-- You should assume that it will run for different days, everyday.
-- Your pipeline should be prepared to run for past days, meaning you should be able to pass an argument to the pipeline with a day from the past, and it should reprocess the data for that day. Since the data for this challenge is static, the only difference for each day of execution will be the output paths.
+public | customers | tabela | northwind_user
 
-### Things that Matters
+public | employee_territories | tabela | northwind_user
 
-- Clean and organized code.
-- Good decisions at which step (which database, which file format..) and good arguments to back those decisions up.
-- The aim of the challenge is not only to assess technical knowledge in the area, but also the ability to search for information and use it to solve problems with tools that are not necessarily known to the candidate.
-- Point and click tools are not allowed.
+public | employees | tabela | northwind_user
 
+public | orders | tabela | northwind_user
 
-Thank you for participating!
+public | products | tabela | northwind_user
+
+public | region | tabela | northwind_user
+
+public | shippers | tabela | northwind_user
+
+public | suppliers | tabela | northwind_user
+
+public | territories | tabela | northwind_user
+
+public | us_states | tabela | northwind_user
+
+(13 linhas)
+
+northwind=# /q
+
+4.Instalação do Meltano
+
+pip install meltano
+
+5.Instalação do Airflow
+
+meltano add utility airflow
+
+meltano invoke airflow:initialize
+
+meltano invoke airflow users create -u airflow -p airflow --role Admin -e airflow -f admin -l admin
+
+meltano invoke airflow scheduler &
+
+meltano invoke airflow webserver
+
+*Setup Meltano*
+
+1.Criação do projeto “meltano-postgresql-csv”
+
+meltano init meltano-postgresql-csv
+
+cd meltano-postgresql-csv
+
+2.Adição dos “extractors” e “loaders” ao projeto
+
+meltano add extractor tap-postgres
+
+meltano add extractor tap-csv
+
+meltano add loader target-csv
+
+meltano add loader target-postgres
+
+*Setup do Meltano para o Step 1*
+
+1.Ajustes no arquivo “meltano.yaml” para definição do extractor para o protgresql e loader do csv.
+
+Criação da seção “extractors”.
+
+Para o PostgreSQL será utilizado o extrator “tap-postgres” (<https://hub.meltano.com/extractors/tap-postgres/>). Informados dados de acesso ao banco de dados em execução no container. Na sub-seção “select” é informado que deverão ser selecionados todos os arquivos que estejam no schema/catalogo “public” (public-\) e que sejam trazidas todas as colunas (.\)
+
+plugins:
+
+extractors:
+
+\- name: tap-postgres
+
+variant: meltanolabs
+
+pip_url: git+<https://github.com/MeltanoLabs/tap-postgres.git>
+
+config:
+
+user: northwind_user
+
+password: thewindisblowing
+
+port: 5432
+
+host: localhost
+
+database: northwind
+
+select:
+
+\- public-\.\
+
+Criação da seção “loaders”.
+
+Para o CSV será utilizado o loader “target-csv” (<https://hub.meltano.com/loaders/target-csv/>). Como esse loader será utilizado por mais de uma operação, foi criado um nome adicional “target-csv-postgresql” que herda (inherit_from: target-csv) as definições do nome original “target-csv”. É informado onde deverão ser armazenados os arquivos (output_path: ../data/postgres) e a máscara do path que inclui o nome do arquivo ({stream_name}), a data informada como parâmetro da execução do script ($START_DATE)
+
+&nbsp; - name: target-csv
+
+&nbsp;   variant: meltanolabs
+
+&nbsp;   pip_url: git+<https://github.com/MeltanoLabs/target-csv.git>
+
+&nbsp; - name: target-csv-postgresql
+
+&nbsp;   inherit_from: target-csv
+
+&nbsp;   config:
+
+&nbsp;     output_path: ../data/postgres
+
+&nbsp;     file_naming_scheme: '{stream_name}/$START_DATE/{stream_name}.csv'
