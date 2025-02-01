@@ -206,6 +206,8 @@ To run the script that creates the “order_details” table in PostgreSQL from 
 
 For scheduled execution of the scripts via Airflow, three DAGs were created:
 
+![Airflow](/airflow.png)
+
 ## Scheduled Execution of Step 1
 
 The scripts for Step 1 are executed daily.
