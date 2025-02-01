@@ -85,7 +85,7 @@ As a software developer with focus in data projects your mission is to plan, dev
 	For PostgreSQL, the extractor “tap-postgres” ([https://hub.meltano.com/extractors/tap-postgres/](https://hub.meltano.com/extractors/tap-postgres/)) will be used.  
 	Access credentials for the database running in the container are provided.  
 	In the “select” subsection, it is specified that all files in the “public” schema/catalog (public-_) should be selected, and all columns (._) should be retrieved.
-```
+
 		plugins: 
 			extractors: 
 				- name: tap-postgres
@@ -98,7 +98,7 @@ As a software developer with focus in data projects your mission is to plan, dev
 						database: northwind 
 					select: 
 						- public-*.*
-```
+
 
 	Creation of the “loaders” section.  
 
