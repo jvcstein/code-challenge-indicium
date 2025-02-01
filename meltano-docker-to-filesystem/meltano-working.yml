@@ -1,0 +1,81 @@
+version: 1
+default_environment: dev
+project_id: 2830b494-080c-482c-b00e-846ada69a226
+environments:
+- name: dev
+- name: staging
+- name: prod
+plugins:
+
+  extractors:
+  # read Northwind tables from postregsql
+  - name: tap-postgres
+    variant: meltanolabs
+    pip_url: git+https://github.com/MeltanoLabs/tap-postgres.git
+    config:
+      user: northwind_user
+      password: thewindisblowing
+      port: 5432
+      host: localhost
+      database: northwind
+    select:
+    - public-*.*
+
+  # shared config for tap-csv (for inheritance)
+  - name: tap-csv
+    variant: meltanolabs
+    pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+  - name: tap-csv-docker
+    inherit_from: tap-csv
+    config:
+      files: [{entity: order_details, path: ../data/order_details.csv, keys: [order_id,
+            product_id, unit_price, quantity, discount]}]
+
+  # read order_details from csv at local path       
+  - name: tap-csv-local
+    inherit_from: tap-csv
+    config:
+      files: [{entity: order_details, path: ../data/csv/$START_DATE/order_details.csv,
+          keys: [order_id, product_id, unit_price, quantity, discount]}]
+
+
+  loaders:
+  # shared config for target-csv (for inheritance)
+  - name: target-csv
+    variant: meltanolabs
+    pip_url: git+https://github.com/MeltanoLabs/target-csv.git
+  - name: target-csv-postgresql
+    inherit_from: target-csv
+    config:
+      output_path: ../data/postgres
+      file_naming_scheme: '{stream_name}/$START_DATE/{stream_name}.csv'
+
+  # write order_details from Docker container path to csv at local path
+  - name: target-csv-csv
+    inherit_from: target-csv
+    config:
+      output_path: ../data/csv
+      file_naming_scheme: $START_DATE/{stream_name}.csv
+
+  # create table at postgresql from csv file order_details at local path
+  - name: target-postgres
+    variant: meltanolabs
+    pip_url: meltanolabs-target-postgres
+    config:
+      user: northwind_user
+      password: thewindisblowing
+      port: 5432
+      host: localhost
+      database: northwind
+      default_target_schema: public
+
+  files:
+  - name: files-airflow
+    variant: meltano
+    pip_url: git+https://github.com/meltano/files-airflow.git
+  utilities:
+  - name: airflow
+    variant: apache
+    pip_url: git+https://github.com/meltano/airflow-ext.git@main apache-airflow==2.8.1
+      --constraint 
+      https://raw.githubusercontent.com/apache/airflow/constraints-2.8.1/constraints-no-providers-${MELTANO__PYTHON_VERSION}.txt
